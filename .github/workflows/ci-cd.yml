@@ -77,14 +77,12 @@ jobs:
     needs: build-test
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request'
-    strategy:
-      matrix:
-        include:
-          - branch: main
-            environment: production
-          - branch: master
-            environment: production
-    environment: ${{ github.event.inputs.environment || matrix.environment }}
+    environment: ${{ github.event.inputs.environment || 'production' }}
+    env:
+      ORACLE_HOST: ${{ secrets.ORACLE_HOST }}
+      ORACLE_USER: ${{ secrets.ORACLE_USER }}
+      ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
+      DEVOPS_JWT_SECRET: ${{ secrets.DEVOPS_JWT_SECRET }}
     steps:
       - uses: actions/checkout@v4
 
@@ -92,8 +90,46 @@ jobs:
         id: version
         run: echo "value=${{ github.event.inputs.version || github.sha }}" >> "$GITHUB_OUTPUT"
 
-      - name: Deploy placeholder
+      - name: Skip deploy when Oracle secrets are missing
+        if: env.ORACLE_HOST == '' || env.ORACLE_USER == '' || env.ORACLE_SSH_KEY == '' || env.DEVOPS_JWT_SECRET == ''
+        run: echo "Oracle deploy secrets are not configured. Skipping remote deployment."
+
+      - name: Prepare SSH key
+        if: env.ORACLE_HOST != '' && env.ORACLE_USER != '' && env.ORACLE_SSH_KEY != '' && env.DEVOPS_JWT_SECRET != ''
         run: |
-          IMAGE_NAME="$(echo "${{ secrets.DOCKERHUB_USERNAME }}/${IMAGE_REPOSITORY}" | tr '[:upper:]' '[:lower:]')"
-          echo "Deploying $IMAGE_NAME:${{ steps.version.outputs.value }}"
-          echo "Configure cloud credentials and apply infra/k8s manifests here."
+          mkdir -p ~/.ssh
+          printf '%s\n' "$ORACLE_SSH_KEY" > ~/.ssh/oracle.key
+          chmod 600 ~/.ssh/oracle.key
+          ssh-keyscan -T 20 -H "$ORACLE_HOST" >> ~/.ssh/known_hosts
+
+      - name: Copy deployment files
+        if: env.ORACLE_HOST != '' && env.ORACLE_USER != '' && env.ORACLE_SSH_KEY != '' && env.DEVOPS_JWT_SECRET != ''
+        run: |
+          ssh -o ConnectTimeout=20 -i ~/.ssh/oracle.key "$ORACLE_USER@$ORACLE_HOST" "mkdir -p ~/devops-api"
+          scp -o ConnectTimeout=20 -i ~/.ssh/oracle.key docker-compose.prod.yml "$ORACLE_USER@$ORACLE_HOST:~/devops-api/docker-compose.yml"
+          scp -o ConnectTimeout=20 -i ~/.ssh/oracle.key infra/nginx/nginx.conf "$ORACLE_USER@$ORACLE_HOST:~/devops-api/nginx.conf"
+
+      - name: Deploy to Oracle VM
+        if: env.ORACLE_HOST != '' && env.ORACLE_USER != '' && env.ORACLE_SSH_KEY != '' && env.DEVOPS_JWT_SECRET != ''
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DEVOPS_API_KEY: 2f5ae96c-b558-4c7b-a590-a501ae1c3f6c
+          IMAGE_TAG: latest
+        run: |
+          IMAGE_NAME="$(echo "${DOCKERHUB_USERNAME}/${IMAGE_REPOSITORY}" | tr '[:upper:]' '[:lower:]')"
+          ssh -o ConnectTimeout=20 -i ~/.ssh/oracle.key "$ORACLE_USER@$ORACLE_HOST" \
+            "cd ~/devops-api && \
+             IMAGE_NAME='${IMAGE_NAME}' \
+             IMAGE_TAG='${IMAGE_TAG}' \
+             DEVOPS_API_KEY='${DEVOPS_API_KEY}' \
+             DEVOPS_JWT_SECRET='${DEVOPS_JWT_SECRET}' \
+             docker compose pull && \
+             IMAGE_NAME='${IMAGE_NAME}' \
+             IMAGE_TAG='${IMAGE_TAG}' \
+             DEVOPS_API_KEY='${DEVOPS_API_KEY}' \
+             DEVOPS_JWT_SECRET='${DEVOPS_JWT_SECRET}' \
+             docker compose up -d"
+
+      - name: Deployment summary
+        if: env.ORACLE_HOST != '' && env.ORACLE_USER != '' && env.ORACLE_SSH_KEY != '' && env.DEVOPS_JWT_SECRET != ''
+        run: echo "Application URL: http://$ORACLE_HOST/DevOps"

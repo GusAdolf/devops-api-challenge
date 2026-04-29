@@ -100,12 +100,23 @@ Para publicar imágenes en Docker Hub, configure estos secrets en GitHub:
 
 - `DOCKERHUB_USERNAME`: usuario de Docker Hub.
 - `DOCKERHUB_TOKEN`: access token de Docker Hub.
+- `ORACLE_HOST`: IP publica de la VM Oracle.
+- `ORACLE_USER`: usuario SSH, por ejemplo `opc`.
+- `ORACLE_SSH_KEY`: contenido completo de la llave privada SSH.
+- `DEVOPS_JWT_SECRET`: secreto productivo para firmar JWT.
 
 El pipeline publica:
 
 - `${DOCKERHUB_USERNAME}/devops-api-challenge:<commit-sha>`
 - `${DOCKERHUB_USERNAME}/devops-api-challenge:latest` en `main` o `master`
 - `${DOCKERHUB_USERNAME}/devops-api-challenge:<tag>` cuando se empuja un tag `v*`
+
+El despliegue real copia `docker-compose.prod.yml` y `infra/nginx/nginx.conf` a la VM Oracle y ejecuta:
+
+```bash
+docker compose pull
+docker compose up -d
+```
 
 ## Seguridad
 

@@ -1,0 +1,25 @@
+services:
+  app1:
+    image: ${IMAGE_NAME}:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      DEVOPS_API_KEY: ${DEVOPS_API_KEY}
+      DEVOPS_JWT_SECRET: ${DEVOPS_JWT_SECRET}
+
+  app2:
+    image: ${IMAGE_NAME}:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      DEVOPS_API_KEY: ${DEVOPS_API_KEY}
+      DEVOPS_JWT_SECRET: ${DEVOPS_JWT_SECRET}
+
+  gateway:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      - app1
+      - app2
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
