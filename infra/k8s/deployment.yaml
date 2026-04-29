@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: devops-api
-          image: ghcr.io/OWNER/REPOSITORY:latest
+          image: docker.io/DOCKERHUB_USERNAME/devops-api-challenge:latest
           ports:
             - containerPort: 8000
           env:

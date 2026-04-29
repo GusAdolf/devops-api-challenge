@@ -75,7 +75,7 @@ La carpeta `infra/k8s` incluye:
 - `service.yaml`: servicio tipo `LoadBalancer`.
 - `hpa.yaml`: escalabilidad dinámica por CPU.
 
-Antes de aplicar en Kubernetes, cambie la imagen `ghcr.io/OWNER/REPOSITORY:latest` por la imagen real publicada por el pipeline y cree el secreto:
+Antes de aplicar en Kubernetes, cambie la imagen `docker.io/DOCKERHUB_USERNAME/devops-api-challenge:latest` por la imagen real publicada en Docker Hub y cree el secreto:
 
 ```bash
 kubectl create secret generic devops-api-secret \
@@ -91,10 +91,21 @@ El workflow `.github/workflows/ci-cd.yml` ejecuta automáticamente:
 2. Análisis estático con Ruff.
 3. Pruebas con cobertura.
 4. Build de imagen Docker.
-5. Publicación de imagen en GHCR.
+5. Publicación de imagen en Docker Hub.
 6. Etapa de despliegue parametrizada.
 
 La rama `main` o `master` despliega a producción. También soporta ejecución bajo demanda (`workflow_dispatch`) y despliegue por versión/tag (`v*`).
+
+Para publicar imágenes en Docker Hub, configure estos secrets en GitHub:
+
+- `DOCKERHUB_USERNAME`: usuario de Docker Hub.
+- `DOCKERHUB_TOKEN`: access token de Docker Hub.
+
+El pipeline publica:
+
+- `${DOCKERHUB_USERNAME}/devops-api-challenge:<commit-sha>`
+- `${DOCKERHUB_USERNAME}/devops-api-challenge:latest` en `main` o `master`
+- `${DOCKERHUB_USERNAME}/devops-api-challenge:<tag>` cuando se empuja un tag `v*`
 
 ## Seguridad
 
