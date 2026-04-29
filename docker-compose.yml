@@ -1,0 +1,22 @@
+services:
+  app1:
+    build: .
+    environment:
+      DEVOPS_API_KEY: 2f5ae96c-b558-4c7b-a590-a501ae1c3f6c
+      DEVOPS_JWT_SECRET: ${DEVOPS_JWT_SECRET:-change-me-in-production}
+
+  app2:
+    build: .
+    environment:
+      DEVOPS_API_KEY: 2f5ae96c-b558-4c7b-a590-a501ae1c3f6c
+      DEVOPS_JWT_SECRET: ${DEVOPS_JWT_SECRET:-change-me-in-production}
+
+  gateway:
+    image: nginx:1.27-alpine
+    depends_on:
+      - app1
+      - app2
+    ports:
+      - "8080:80"
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
